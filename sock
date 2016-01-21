@@ -11,10 +11,15 @@ KEYFILE = DIR+'/cert/server.key'
 
 #SERVER
 #server.run()
-
 #CLIENT
 #client.send(str(data))
 
+
+def executefunction(data):
+	return "CMD RECEIVED " + str(data)
+def loggerfunction(data):
+	print data
+	
 class server:
 	def parse(self,connstream, data):
 		try:
@@ -100,9 +105,4 @@ class client:
 		self.port=port
 		self.sock  = self.sock(certfile)
 
-
-def executefunction(data):
-	return "CMD RECEIVED " + str(data)
-def loggerfunction(data):
-	print data
 
