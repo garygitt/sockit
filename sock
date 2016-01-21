@@ -1,0 +1,107 @@
+import os 
+import struct,ssl,socket
+DIR=os.path.dirname(os.path.realpath(__file__))
+
+CERTFILE = DIR+'/cert/server.crt'
+KEYFILE = DIR+'/cert/server.key'
+
+#server=server(ip='127.0.0.1',port=57070,keyfile=KEYFILE,certfile=CERTFILE,data_receive=executefunction,logger=loggerfunction)
+#client = client(ip='127.0.0.1',port=57070, certfile=CERTFILE)
+
+#SERVER
+#server.run()
+
+#CLIENT
+#client.send(str(data))
+
+class server:
+	def parse(self,connstream, data):
+		try:
+			tosend=str(self.data_receive(data))
+			msg = struct.pack('>I', len(tosend)) + tosend  
+			connstream.sendall(msg)
+			return True
+		except Exception as err:
+			self.logger(str(err))
+	def deal_with_client(self,connstream,fromaddr):
+		try:
+			data = connstream.read()
+			while data:
+				self.logger( str(fromaddr[0]) + '\t' + data ) 
+				if self.parse(connstream, data):
+					break
+				data = connstream.read()
+		except Exception as err:
+			self.logger(str(err))
+	def run(self):
+		self.s = socket.socket()
+		self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.s.bind( ( str(self.ip), self.port ) )
+		self.s.listen(5)
+		while True:
+			try:
+				newsocket, fromaddr = self.s.accept()
+				connstream = ssl.wrap_socket(newsocket, server_side=True, certfile=self.certfile, keyfile=self.keyfile)
+				try:
+					self.deal_with_client(connstream,fromaddr)
+				finally:
+					connstream.shutdown(socket.SHUT_RDWR)
+					connstream.close()
+			except Exception as err:
+				self.logger(str(err))
+				if str(err)  == '[Errno 9] Bad file descriptor':
+					return False
+
+	def __init__(self,ip='127.0.0.1',port=57060,keyfile='null',certfile='null',data_receive='null',logger='null'):
+		self.ip=ip
+		self.port=port
+		self.keyfile=keyfile
+		self.certfile=certfile
+		self.logger=logger
+		self.data_receive=data_receive
+
+class client:
+	class sock:
+		def __init__(self,crt):
+			self.crt=crt
+		def recv_msg(self,ssl_sock):
+			# Read message length and unpack it into an integer
+			raw_msglen = self.recvall(ssl_sock, 4)
+			if not raw_msglen:
+				return None
+			msglen = struct.unpack('>I', raw_msglen)[0]
+			# Read the message data
+			return self.recvall(ssl_sock, msglen)
+		def recvall(self,ssl_sock, n):
+			# Helper function to recv n bytes or return None if EOF is hit
+			data = ''
+			while len(data) < n:
+				packet = ssl_sock.recv(n - len(data))
+				if not packet:
+					return None
+				data += packet
+			return data
+		def send_msg(self,msg,ip,port):
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			ssl_sock = ssl.wrap_socket(s, ca_certs=self.crt, cert_reqs=ssl.CERT_REQUIRED)
+			ssl_sock.connect((ip,port));
+			ssl_sock.sendall(msg)
+
+			tm = self.recv_msg(ssl_sock)
+			ssl_sock.close()
+			return tm
+
+	def send(self,data):
+		return self.sock.send_msg(str(data),self.ip,self.port )
+		
+	def __init__(self,ip='127.0.0.1',port=57060,certfile='null'):
+		self.ip=ip
+		self.port=port
+		self.sock  = self.sock(certfile)
+
+
+def executefunction(data):
+	return "CMD RECEIVED " + str(data)
+def loggerfunction(data):
+	print data
+
